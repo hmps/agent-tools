@@ -15,6 +15,7 @@
 
 import { Command } from "commander";
 import { registerSkillCommands } from "../tools/skill.js";
+import { registerInitCommands } from "../tools/init.js";
 
 /**
  * Main CLI program
@@ -36,6 +37,9 @@ program
 
 // Register all skill-related commands
 registerSkillCommands(program);
+
+// Register init commands
+registerInitCommands(program);
 
 // Parse and execute
 program.parse();
