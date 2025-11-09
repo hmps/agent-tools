@@ -1,11 +1,15 @@
 {
-  "name": "agent-tools",
+  "name": "agt",
+  "version": "1.0.0",
   "description": "A comprehensive CLI toolkit for agents to interact with internal and external services",
   "module": "src/index.ts",
   "type": "module",
-  "private": true,
   "bin": {
     "agt": "src/index.ts"
+  },
+  "scripts": {
+    "build": "bun build src/index.ts --compile --outfile dist/agt",
+    "install": "cp dist/agt /usr/local/bin/agt && chmod +x /usr/local/bin/agt"
   },
   "devDependencies": {
     "@types/bun": "latest"
