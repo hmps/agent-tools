@@ -1,5 +1,6 @@
 {
   "name": "agent-tools",
+  "description": "A comprehensive CLI toolkit for agents to interact with internal and external services",
   "module": "src/index.ts",
   "type": "module",
   "private": true,
