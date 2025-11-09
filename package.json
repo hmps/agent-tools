@@ -1,0 +1,18 @@
+{
+  "name": "agent-tools",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "agt": "src/index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "commander": "^14.0.2"
+  }
+}
