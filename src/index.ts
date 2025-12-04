@@ -14,7 +14,7 @@
  */
 
 import { Command } from "commander";
-import { registerSkillCommands } from "../tools/skill.js";
+import { registerSkillCommands, getProjectRoot } from "../tools/skill.js";
 import { registerInitCommands } from "../tools/init.js";
 
 /**
@@ -40,6 +40,14 @@ registerSkillCommands(program);
 
 // Register init commands
 registerInitCommands(program);
+
+// Get project directory command
+program
+  .command("get-dir")
+  .description("Output the agent-tools project directory")
+  .action(() => {
+    console.log(getProjectRoot());
+  });
 
 // Parse and execute
 program.parse();

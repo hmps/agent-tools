@@ -24,6 +24,8 @@ Agent Tools is designed for LLM consumption with:
 
 ## Available Commands
 
+\`agt get-dir\` get the root directory of the agent-tools project. This is useful for accessing the skill repository and other resources.
+
 ### Skill Management
 The \`agt skill\` command helps you discover and utilize pre-built agent skills:
 

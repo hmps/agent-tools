@@ -8,8 +8,8 @@
     "agt": "src/index.ts"
   },
   "scripts": {
-    "build": "bun build src/index.ts --compile --outfile dist/agt",
-    "install": "cp dist/agt /usr/local/bin/agt && chmod +x /usr/local/bin/agt"
+    "build": "bun build src/index.ts --compile --outfile dist/agt --define PROJECT_ROOT='\"'$(pwd)'\"'",
+    "install": "bun run build && cp dist/agt /usr/local/bin/agt && chmod +x /usr/local/bin/agt"
   },
   "devDependencies": {
     "@types/bun": "latest"

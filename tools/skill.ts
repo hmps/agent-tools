@@ -1,13 +1,24 @@
 import { readdir, readFile } from "node:fs/promises";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { Command } from "commander";
 
-// Get the root directory of the project (parent of tools/)
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const PROJECT_ROOT = join(__dirname, "..");
-const SKILLS_DIR = join(PROJECT_ROOT, "skills");
+// PROJECT_ROOT is injected at build time via --define flag
+// Falls back to import.meta.url resolution for development
+declare const PROJECT_ROOT: string | undefined;
+
+export function getProjectRoot(): string {
+  if (typeof PROJECT_ROOT !== "undefined") {
+    return PROJECT_ROOT;
+  }
+  // Fallback for development (running via bun src/index.ts)
+  const { dirname } = require("node:path");
+  const { fileURLToPath } = require("node:url");
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = dirname(__filename);
+  return join(__dirname, "..");
+}
+
+const SKILLS_DIR = join(getProjectRoot(), "skills");
 
 export interface Skill {
   name: string;
@@ -21,22 +32,26 @@ export interface Skill {
 function parseFrontmatter(content: string): { name: string; description: string } | null {
   const frontmatterRegex = /^---\s*\n([\s\S]*?)\n---/;
   const match = content.match(frontmatterRegex);
-  
-  if (!match) {
+
+  const frontmatter = match?.[1];
+
+  if (!frontmatter) {
     return null;
   }
-  
-  const frontmatter = match[1];
+
   const nameMatch = frontmatter.match(/^name:\s*(.+)$/m);
   const descMatch = frontmatter.match(/^description:\s*(.+)$/m);
-  
-  if (!nameMatch || !descMatch) {
+
+  const name = nameMatch?.[1];
+  const description = descMatch?.[1];
+
+  if (!name || !description) {
     return null;
   }
-  
+
   return {
-    name: nameMatch[1].trim(),
-    description: descMatch[1].trim(),
+    name: name.trim(),
+    description: description.trim(),
   };
 }
 
@@ -53,19 +68,19 @@ function stripFrontmatter(content: string): string {
  */
 export async function discoverSkills(): Promise<Skill[]> {
   const skills: Skill[] = [];
-  
+
   try {
     const entries = await readdir(SKILLS_DIR, { withFileTypes: true });
-    
+
     for (const entry of entries) {
       if (entry.isDirectory()) {
         const skillPath = join(SKILLS_DIR, entry.name);
         const skillFile = join(skillPath, "SKILL.md");
-        
+
         try {
           const content = await readFile(skillFile, "utf-8");
           const metadata = parseFrontmatter(content);
-          
+
           if (metadata) {
             skills.push({
               name: metadata.name,
@@ -83,7 +98,7 @@ export async function discoverSkills(): Promise<Skill[]> {
     console.error(`Error: Cannot read skills directory: ${SKILLS_DIR}`);
     process.exit(1);
   }
-  
+
   return skills;
 }
 
@@ -95,7 +110,7 @@ export function printSkills(skills: Skill[]): void {
     console.log("No skills found.");
     return;
   }
-  
+
   for (const skill of skills) {
     console.log(`SKILL: ${skill.name}`);
     console.log(`DESCRIPTION: ${skill.description}`);
@@ -109,20 +124,20 @@ export function printSkills(skills: Skill[]): void {
  */
 export async function searchSkills(keywords: string[]): Promise<void> {
   const skills = await discoverSkills();
-  
+
   if (keywords.length === 0) {
     // No keywords - return all skills
     printSkills(skills);
     return;
   }
-  
+
   // Filter skills that match any keyword (case-insensitive)
   const searchTerms = keywords.map(k => k.toLowerCase());
   const matches = skills.filter(skill => {
     const searchText = `${skill.name} ${skill.description}`.toLowerCase();
     return searchTerms.some(term => searchText.includes(term));
   });
-  
+
   printSkills(matches);
 }
 
@@ -140,14 +155,14 @@ export async function listAllSkills(): Promise<void> {
 export async function getSkill(skillName: string): Promise<void> {
   const skills = await discoverSkills();
   const skill = skills.find(s => s.name === skillName);
-  
+
   if (!skill) {
     console.error(`Error: Skill '${skillName}' not found.`);
     process.exit(1);
   }
-  
-  const skillFile = join(PROJECT_ROOT, skill.path, "SKILL.md");
-  
+
+  const skillFile = join(getProjectRoot(), skill.path, "SKILL.md");
+
   try {
     const content = await readFile(skillFile, "utf-8");
     const contentWithoutFrontmatter = stripFrontmatter(content);
