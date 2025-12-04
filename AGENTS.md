@@ -20,35 +20,31 @@
 <agent-tools>
 # Agent Tools CLI (agt)
 
-Agent Tools is a comprehensive CLI toolkit available in this environment that provides agents with enhanced capabilities for skill management, service integrations, and utility functions.
+Agent Tools is a CLI toolkit that provides agents with skills - proven patterns, code examples, and best practices for common tasks.
 
-Agent Tools is designed for LLM consumption with:
-- Plain text, structured output optimized for agent parsing
-- Direct access to skill repository containing development best practices
+## Available Skills
 
-## How to Use Agent Tools in Your Work
+- **test-driven-development**: Use when implementing any feature or bugfix, before writing implementation code - write the test first, watch it fail, write minimal code to pass; ensures tests actually verify behavior by requiring failure first
+- **playwright**: Complete browser automation with Playwright. Auto-detects dev servers, writes clean test scripts to /tmp. Test pages, fill forms, take screenshots, check responsive design, validate UX, test login flows, check links, automate any browser task. Use when user wants to test websites, automate browser interactions, validate web functionality, or perform any browser-based testing.
+- **extract-learnings**: Use after completing a session to identify genuine learnings from mistakes, corrections, or rework - focuses only on patterns that were actually wrong, not things that worked correctly the first time
+- **writing-plans**: Create detailed implementation plans with bite-sized tasks for engineers with zero codebase context. Use this when design is complete and you need detailed implementation tasks for engineers with zero codebase context
+- **receiving-code-review**: Use when receiving code review feedback, before implementing suggestions, especially if feedback seems unclear or technically questionable - requires technical rigor and verification, not performative agreement or blind implementation
+- **subagent-driven-development**: Use when executing implementation plans with independent tasks in the current session - dispatches fresh subagent for each task with code review between tasks, enabling fast iteration with quality gates
+- **using-git-worktree**: Create isolated git worktrees at bare repo root level
 
-1. **Discover relevant commands**: `agt --help` will list all available commands and their descriptions.
-2. Find a short description of each command below.
-
-## Available Commands
-
-### Skill Management
-The `agt skill` command helps you discover and utilize pre-built agent skills:
+## Skill Commands
 
 ```bash
+# Get full content of a specific skill
+agt skill get <name>
+
 # Search for skills by keywords
 agt skill search [keywords...]
 
-# List all available skills
+# List all available skills (with descriptions)
 agt skill all
-
-# Get full content of a specific skill
-agt skill get <name>
 ```
 
-**Use skills to enhance your capabilities**: Skills contain proven patterns, code examples, and best practices that you can apply to solve common problems more effectively.
-
-**Recommendation**: Proactively use `agt skill search` when starting complex tasks to discover relevant skills that can guide your implementation approach.
+**IMPORTANT**: When you encounter a task that matches a skill description above, run `agt skill get <name>` to get the full skill content before proceeding.
 
 </agent-tools>

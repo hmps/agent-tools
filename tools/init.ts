@@ -1,49 +1,56 @@
 import { readFile, writeFile, access } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { Command } from "commander";
+import { discoverSkills, type Skill } from "./skill.js";
 
 export interface InitOptions {
   filePath?: string;
 }
 
 /**
- * Default content to add to AGENTS.md about agent-tools
+ * Format skills list for inclusion in documentation
  */
-const AGENT_TOOLS_DOCUMENTATION = `# Agent Tools CLI (agt)
+function formatSkillsList(skills: Skill[]): string {
+  if (skills.length === 0) {
+    return "No skills currently available.";
+  }
 
-Agent Tools is a comprehensive CLI toolkit available in this environment that provides agents with enhanced capabilities for skill management, service integrations, and utility functions.
+  return skills
+    .map(skill => `- **${skill.name}**: ${skill.description}`)
+    .join("\n");
+}
 
-Agent Tools is designed for LLM consumption with:
-- Plain text, structured output optimized for agent parsing
-- Direct access to skill repository containing development best practices
+/**
+ * Generate documentation content with dynamic skills list
+ */
+async function generateDocumentation(): Promise<string> {
+  const skills = await discoverSkills();
+  const skillsList = formatSkillsList(skills);
 
-## How to Use Agent Tools in Your Work
+  return `# Agent Tools CLI (agt)
 
-1. **Discover relevant commands**: \`agt --help\` will list all available commands and their descriptions.
-2. Find a short description of each command below.
+Agent Tools is a CLI toolkit that provides agents with skills - proven patterns, code examples, and best practices for common tasks.
 
-## Available Commands
+## Available Skills
 
-\`agt get-dir\` get the root directory of the agent-tools project. This is useful for accessing the skill repository and other resources.
+${skillsList}
 
-### Skill Management
-The \`agt skill\` command helps you discover and utilize pre-built agent skills:
+## Skill Commands
 
 \`\`\`bash
+# Get full content of a specific skill
+agt skill get <name>
+
 # Search for skills by keywords
 agt skill search [keywords...]
 
-# List all available skills
+# List all available skills (with descriptions)
 agt skill all
-
-# Get full content of a specific skill
-agt skill get <name>
 \`\`\`
 
-**Use skills to enhance your capabilities**: Skills contain proven patterns, code examples, and best practices that you can apply to solve common problems more effectively.
-
-**Recommendation**: Proactively use \`agt skill search\` when starting complex tasks to discover relevant skills that can guide your implementation approach.
+**IMPORTANT**: When you encounter a task that matches a skill description above, run \`agt skill get <name>\` to get the full skill content before proceeding.
 `;
+}
 
 /**
  * Check if a file exists
@@ -74,6 +81,9 @@ export async function initAgentTools(options: InitOptions = {}): Promise<void> {
     // Read existing content
     const existingContent = await readFile(agentsFilePath, "utf-8");
 
+    // Generate documentation with current skills
+    const documentation = await generateDocumentation();
+
     // Check if agent-tools section already exists
     const agentToolsRegex = /<agent-tools>([\s\S]*?)<\/agent-tools>/;
     const hasExistingSection = agentToolsRegex.test(existingContent);
@@ -84,12 +94,12 @@ export async function initAgentTools(options: InitOptions = {}): Promise<void> {
       // Replace existing section
       newContent = existingContent.replace(
         agentToolsRegex,
-        `<agent-tools>\n${AGENT_TOOLS_DOCUMENTATION}\n</agent-tools>`
+        `<agent-tools>\n${documentation}\n</agent-tools>`
       );
       console.log(`Updated existing agent-tools section in ${agentsFilePath}`);
     } else {
       // Add new section at the end
-      const sectionToAdd = `\n\n<agent-tools>\n${AGENT_TOOLS_DOCUMENTATION}\n</agent-tools>`;
+      const sectionToAdd = `\n\n<agent-tools>\n${documentation}\n</agent-tools>`;
       newContent = existingContent + sectionToAdd;
       console.log(`Added new agent-tools section to ${agentsFilePath}`);
     }
