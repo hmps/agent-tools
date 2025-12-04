@@ -143,7 +143,7 @@ const TARGET_URL = 'http://localhost:3001'; // <-- Auto-detected or from user
   await page.screenshot({ path: '/tmp/screenshot.png', fullPage: true });
   console.log('📸 Screenshot saved to /tmp/screenshot.png');
 
-  // Note: Don't close browser - keeps Chrome running for next automation
+  await browser.close();
 })();
 ```
 
@@ -176,7 +176,7 @@ const TARGET_URL = 'http://localhost:3001'; // Auto-detected
   await page.setViewportSize({ width: 375, height: 667 });
   await page.screenshot({ path: '/tmp/mobile.png', fullPage: true });
 
-  // Note: Don't close browser - keeps Chrome running for next automation
+  await browser.close();
 })();
 ```
 
@@ -399,7 +399,7 @@ For comprehensive Playwright API documentation, see [API_REFERENCE.md](API_REFER
 - **CRITICAL: Detect servers FIRST** - Always run `detectDevServers()` before writing test code for localhost testing
 - **Use /tmp for test files** - Write to `/tmp/playwright-test-*.js`, never to skill directory or user's project
 - **Parameterize URLs** - Put detected/provided URL in a `TARGET_URL` constant at the top of every script
-- **Don't close the browser** - When using `connectToChrome()`, don't call `browser.close()` - keep Chrome running for next automation
+- **Close the browser when done** - Always call `await browser.close()` at the end of your script to clean up resources
 - **Error handling:** Always use try-catch for robust automation
 - **Console output:** Use `console.log()` to track progress and show what's happening
 
