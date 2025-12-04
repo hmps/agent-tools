@@ -34,11 +34,20 @@ General-purpose browser automation skill. I'll write custom Playwright code for 
    - If **multiple servers found**: Ask user which one to test
    - If **no servers found**: Ask for URL or offer to help start dev server
 
-2. **Write scripts to /tmp** - NEVER write test files to skill directory; always use `/tmp/playwright-test-*.js`
+2. **ALWAYS use `helpers.connectToChrome()`** - This is MANDATORY for browser automation:
+   ```javascript
+   const helpers = require('./lib/helpers');
+   const { browser, page } = await helpers.connectToChrome();
+   ```
+   - Preserves cookies, sessions, and login state across runs
+   - Auto-launches Chrome with debug profile if not running
+   - **NEVER use `chromium.launch()` directly** - it creates a fresh browser without auth state
 
-3. **Use visible browser by default** - Always use `headless: false` unless user specifically requests headless mode
+3. **Write scripts to /tmp** - NEVER write test files to skill directory; always use `/tmp/playwright-test-*.js`
 
-4. **Parameterize URLs** - Always make URLs configurable via environment variable or constant at top of script
+4. **Use visible browser by default** - Always use `headless: false` unless user specifically requests headless mode
+
+5. **Parameterize URLs** - Always make URLs configurable via environment variable or constant at top of script
 
 ## How It Works
 
@@ -58,40 +67,55 @@ npm run setup
 
 This installs Playwright and Chromium browser. Only needed once.
 
-## Browser Modes
+## Browser Connection (MANDATORY)
 
-### Default: Connect to User's Chrome (Recommended)
+### ALWAYS Use: `helpers.connectToChrome()`
 
-Uses `connectToChrome()` to connect to Chrome with your existing profile (cookies, sessions, login state). This is the preferred method when testing authenticated apps.
+**Every script MUST use `connectToChrome()` from helpers.** This connects to Chrome with the user's existing profile (cookies, sessions, login state).
 
 ```javascript
 const helpers = require('./lib/helpers');
 
 const { browser, page } = await helpers.connectToChrome();
-// Your cookies and sessions are available!
+// Cookies, sessions, and auth state are preserved!
 await page.goto('http://localhost:3000/dashboard');
 ```
 
+**Why this is required:**
+- Preserves authentication - user stays logged in across automation runs
+- Maintains cookies and localStorage - no need to re-authenticate
+- Uses dedicated `~/playwright-agent` profile - isolated from user's main Chrome
+- Auto-launches Chrome with debug port if not running
+
 **How it works:**
-- Launches Chrome with a dedicated `~/playwright-agent` profile via CDP (port 9222)
+- Connects to Chrome via CDP (Chrome DevTools Protocol) on port 9222
 - If Chrome debug instance isn't running, it launches automatically
 - Runs alongside your normal Chrome (separate instance)
-- First time: log into your app in this Chrome window; sessions persist for future runs
+- First time: user logs into apps in this Chrome window; sessions persist for all future runs
 
 **Manual launch (if needed):**
 ```bash
 open -na "Google Chrome" --args --remote-debugging-port=9222 --user-data-dir="$HOME/playwright-agent"
 ```
 
-### Alternative: Clean Browser Instance
+### DO NOT USE: `chromium.launch()`
 
-For tests that need a fresh browser without any state:
+**Never use `chromium.launch()` directly** - it creates a fresh browser without any auth state:
 
 ```javascript
+// ❌ WRONG - Don't do this!
 const { chromium } = require('playwright');
 const browser = await chromium.launch({ headless: false });
 const page = await browser.newPage();
+// No cookies, no sessions, user must log in every time
+
+// ✅ CORRECT - Always do this!
+const helpers = require('./lib/helpers');
+const { browser, page } = await helpers.connectToChrome();
+// Cookies and sessions preserved!
 ```
+
+**Only exception:** When user explicitly requests a "fresh browser", "clean session", or "incognito mode".
 
 ## Execution Pattern
 
@@ -135,13 +159,12 @@ cd $SKILL_DIR && node run.js /tmp/playwright-test-page.js
 
 ```javascript
 // /tmp/playwright-test-responsive.js
-const { chromium } = require('playwright');
+const helpers = require('./lib/helpers');
 
 const TARGET_URL = 'http://localhost:3001'; // Auto-detected
 
 (async () => {
-  const browser = await chromium.launch({ headless: false, slowMo: 100 });
-  const page = await browser.newPage();
+  const { browser, page } = await helpers.connectToChrome();
 
   // Desktop test
   await page.setViewportSize({ width: 1920, height: 1080 });
@@ -153,33 +176,29 @@ const TARGET_URL = 'http://localhost:3001'; // Auto-detected
   await page.setViewportSize({ width: 375, height: 667 });
   await page.screenshot({ path: '/tmp/mobile.png', fullPage: true });
 
-  await browser.close();
+  // Note: Don't close browser - keeps Chrome running for next automation
 })();
 ```
 
-### Test Login Flow
+### Access Authenticated Pages
 
 ```javascript
-// /tmp/playwright-test-login.js
-const { chromium } = require('playwright');
+// /tmp/playwright-test-dashboard.js
+const helpers = require('./lib/helpers');
 
 const TARGET_URL = 'http://localhost:3001'; // Auto-detected
 
 (async () => {
-  const browser = await chromium.launch({ headless: false });
-  const page = await browser.newPage();
+  // connectToChrome() preserves login sessions!
+  const { browser, page } = await helpers.connectToChrome();
 
-  await page.goto(`${TARGET_URL}/login`);
+  // If user has logged in before, they're still logged in
+  await page.goto(`${TARGET_URL}/dashboard`);
+  console.log('Dashboard title:', await page.title());
 
-  await page.fill('input[name="email"]', 'test@example.com');
-  await page.fill('input[name="password"]', 'password123');
-  await page.click('button[type="submit"]');
-
-  // Wait for redirect
-  await page.waitForURL('**/dashboard');
-  console.log('✅ Login successful, redirected to dashboard');
-
-  await browser.close();
+  // No need to log in again - cookies and sessions are preserved
+  await page.screenshot({ path: '/tmp/dashboard.png', fullPage: true });
+  console.log('📸 Screenshot saved to /tmp/dashboard.png');
 })();
 ```
 
@@ -187,13 +206,12 @@ const TARGET_URL = 'http://localhost:3001'; // Auto-detected
 
 ```javascript
 // /tmp/playwright-test-form.js
-const { chromium } = require('playwright');
+const helpers = require('./lib/helpers');
 
 const TARGET_URL = 'http://localhost:3001'; // Auto-detected
 
 (async () => {
-  const browser = await chromium.launch({ headless: false, slowMo: 50 });
-  const page = await browser.newPage();
+  const { browser, page } = await helpers.connectToChrome();
 
   await page.goto(`${TARGET_URL}/contact`);
 
@@ -205,21 +223,21 @@ const TARGET_URL = 'http://localhost:3001'; // Auto-detected
   // Verify submission
   await page.waitForSelector('.success-message');
   console.log('✅ Form submitted successfully');
-
-  await browser.close();
 })();
 ```
 
 ### Check for Broken Links
 
 ```javascript
-const { chromium } = require('playwright');
+// /tmp/playwright-test-links.js
+const helpers = require('./lib/helpers');
+
+const TARGET_URL = 'http://localhost:3000'; // Auto-detected
 
 (async () => {
-  const browser = await chromium.launch({ headless: false });
-  const page = await browser.newPage();
+  const { browser, page } = await helpers.connectToChrome();
 
-  await page.goto('http://localhost:3000');
+  await page.goto(TARGET_URL);
 
   const links = await page.locator('a[href^="http"]').all();
   const results = { working: 0, broken: [] };
@@ -240,25 +258,22 @@ const { chromium } = require('playwright');
 
   console.log(`✅ Working links: ${results.working}`);
   console.log(`❌ Broken links:`, results.broken);
-
-  await browser.close();
 })();
 ```
 
 ### Take Screenshot with Error Handling
 
 ```javascript
-const { chromium } = require('playwright');
+// /tmp/playwright-test-screenshot.js
+const helpers = require('./lib/helpers');
+
+const TARGET_URL = 'http://localhost:3000'; // Auto-detected
 
 (async () => {
-  const browser = await chromium.launch({ headless: false });
-  const page = await browser.newPage();
+  const { browser, page } = await helpers.connectToChrome();
 
   try {
-    await page.goto('http://localhost:3000', {
-      waitUntil: 'networkidle',
-      timeout: 10000
-    });
+    await page.goto(TARGET_URL);
 
     await page.screenshot({
       path: '/tmp/screenshot.png',
@@ -268,8 +283,6 @@ const { chromium } = require('playwright');
     console.log('📸 Screenshot saved to /tmp/screenshot.png');
   } catch (error) {
     console.error('❌ Error:', error.message);
-  } finally {
-    await browser.close();
   }
 })();
 ```
@@ -278,13 +291,12 @@ const { chromium } = require('playwright');
 
 ```javascript
 // /tmp/playwright-test-responsive-full.js
-const { chromium } = require('playwright');
+const helpers = require('./lib/helpers');
 
 const TARGET_URL = 'http://localhost:3001'; // Auto-detected
 
 (async () => {
-  const browser = await chromium.launch({ headless: false });
-  const page = await browser.newPage();
+  const { browser, page } = await helpers.connectToChrome();
 
   const viewports = [
     { name: 'Desktop', width: 1920, height: 1080 },
@@ -310,7 +322,6 @@ const TARGET_URL = 'http://localhost:3001'; // Auto-detected
   }
 
   console.log('✅ All viewports tested');
-  await browser.close();
 })();
 ```
 
@@ -319,14 +330,12 @@ const TARGET_URL = 'http://localhost:3001'; // Auto-detected
 For quick one-off tasks, you can execute code inline without creating files:
 
 ```bash
-# Take a quick screenshot
+# Take a quick screenshot (still uses connectToChrome via helpers)
 cd $SKILL_DIR && node run.js "
-const browser = await chromium.launch({ headless: false });
-const page = await browser.newPage();
+const { browser, page } = await helpers.connectToChrome();
 await page.goto('http://localhost:3001');
 await page.screenshot({ path: '/tmp/quick-screenshot.png', fullPage: true });
 console.log('Screenshot saved');
-await browser.close();
 "
 ```
 
@@ -336,15 +345,15 @@ await browser.close();
 
 ## Available Helpers
 
-Utility functions in `lib/helpers.js`:
+Utility functions in `lib/helpers.js` - **ALWAYS import and use these**:
 
 ```javascript
 const helpers = require('./lib/helpers');
 
-// Connect to Chrome with your profile (cookies, sessions preserved)
+// ⭐ PRIMARY: Connect to Chrome with preserved auth state (ALWAYS USE THIS)
 const { browser, page } = await helpers.connectToChrome();
 
-// Detect running dev servers (CRITICAL - use this first!)
+// Detect running dev servers (use before writing test code)
 const servers = await helpers.detectDevServers();
 console.log('Found servers:', servers);
 
@@ -364,6 +373,11 @@ await helpers.handleCookieBanner(page);
 const data = await helpers.extractTableData(page, 'table.results');
 ```
 
+**Key helpers:**
+- `connectToChrome()` - **REQUIRED** - connects to Chrome with cookies/sessions preserved
+- `detectDevServers()` - finds running dev servers on common ports
+- `safeClick()` / `safeType()` - reliable interactions with retry logic
+
 See `lib/helpers.js` for full list.
 
 ## Advanced Usage
@@ -381,12 +395,11 @@ For comprehensive Playwright API documentation, see [API_REFERENCE.md](API_REFER
 
 ## Tips
 
+- **CRITICAL: Always use `helpers.connectToChrome()`** - Never use `chromium.launch()` directly; always connect to Chrome with preserved auth state
 - **CRITICAL: Detect servers FIRST** - Always run `detectDevServers()` before writing test code for localhost testing
 - **Use /tmp for test files** - Write to `/tmp/playwright-test-*.js`, never to skill directory or user's project
 - **Parameterize URLs** - Put detected/provided URL in a `TARGET_URL` constant at the top of every script
-- **DEFAULT: Visible browser** - Always use `headless: false` unless user explicitly asks for headless mode
-- **Headless mode** - Only use `headless: true` when user specifically requests "headless" or "background" execution
-- **Slow down:** Use `slowMo: 100` to make actions visible and easier to follow
+- **Don't close the browser** - When using `connectToChrome()`, don't call `browser.close()` - keep Chrome running for next automation
 - **Error handling:** Always use try-catch for robust automation
 - **Console output:** Use `console.log()` to track progress and show what's happening
 
